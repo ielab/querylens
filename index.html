@@ -3,7 +3,7 @@
 <html lang="en" xmlns:v-on="http://www.w3.org/1999/xhtml" xmlns:v-bind="http://www.w3.org/1999/xhtml">
 <head>
     <meta charset="UTF-8">
-    <title>searchrefiner - QueryVis</title>
+    <title>searchrefiner - QueryLens</title>
     <link rel="icon" href="/static/favicon.png" type="image/x-png">
     <link rel="stylesheet" href="/static/spectre.min.css" type="text/css">
     <link rel="stylesheet" href="/static/spectre-icons.min.css" type="text/css">
@@ -14,9 +14,32 @@
     <link rel="stylesheet" href="/static/searchrefiner.css" type="text/css">
     <link rel="stylesheet" href="/static/jquery.highlight-within-textarea.css"/>
     <style>
-        .main {
-            padding-left: 20%;
-            padding-right: 20%;
+        body, html, .container {
+            height: 100%;
+            max-height: 100%;
+            /*overflow: hidden;*/
+        }
+
+        /*.columns {*/
+        /*    height: calc(100%);*/
+        /*}*/
+
+        textarea {
+            padding: 0;
+            margin: 0;
+        }
+
+        .bracket {
+            background-color: #ccc9ff;
+            border-bottom: 1px solid black;
+        }
+
+        .operator {
+            background-color: #fbffe1;
+        }
+
+        .fields {
+            background-color: #e6ffef;
         }
     </style>
 </head>
@@ -26,45 +49,49 @@
     <header class="navbar bg-secondary nav-height">
         {{template "sidebar"}}
     </header>
-    <h1 class="main">QueryLens</h1>
-    <div class="main" v-if="!submitted">
-        <textarea class="form-input" rows="15" placeholder="Enter query here." v-model:value="query"></textarea>
-        <div class="form-group">
-            <label>Query Language
-                <small><a href="/help#WritingQueries">help?</a></small>
-                <select class="form-select" v-bind:value="lang" v-model="lang">
-                    <option value="pubmed">PubMed</option>
-                    <option value="medline">Ovid MEDLINE</option>
-                    <option disabled>Cochrane Library (Coming eventually)</option>
-                    <option disabled>EMBASE (Coming eventually)</option>
-                </select>
-            </label>
-        </div>
-        <button class="btn btn-primary mt-2 float-right" v-on:click="submitNew">Submit</button>
-    </div>
-    <div class="main" v-if="submitted">
-        <div v-if="queries.length == 0">
-            <p>Your submitted query:</p>
-            <textarea disabled class="form-input" rows="15" v-model:value="query"></textarea>
-            <p>Please do not refresh or navigate away from this page.</p>
-            <div v-if="progress == 0">
-                <progress class="progress" min="0" max="100"></progress>
-                <p>[[message]]</p>
-                <i>This process will be faster the next time around. The results from your query will be cached.</i>
-            </div>
-            <div v-if="progress > 0">
-                <progress class="progress" v-bind:value="progress" min="0" max="100"></progress>
-                <p>Evaluating queries...</p>
+    <div class="columns col-gapless">
+        <div class="col-4 p-2">
+            <textarea id="query" class="form-input" rows="20" placeholder="Enter query here." v-model:value="query" :disabled="submitted ? '' : disabled"></textarea>
+            <div class="form-group" v-if="!submitted">
+                <label>Query Language
+                    <small><a href="/help#WritingQueries">help?</a></small>
+                    <select class="form-select" v-bind:value="lang" v-model="lang">
+                        <option value="pubmed">PubMed</option>
+                        <option value="medline">Ovid MEDLINE</option>
+                        <option disabled>Cochrane Library (Coming eventually)</option>
+                        <option disabled>EMBASE (Coming eventually)</option>
+                    </select>
+                </label>
+                <button class="btn btn-primary mt-2 float-right" v-on:click="submitNew">Submit</button>
             </div>
         </div>
-        <div v-if="queries.length > 0">
-            <div class="container">
-                <div class="columns">
-                    <div class="column col-6">
-                        <button class="btn btn-primary mb-2" v-on:click="reset">Back</button>
-                        <textarea disabled class="form-input" rows="15" v-model:value="queries[queryIdx].query"></textarea>
-                        <input class="slider" type="range" min="0" v-bind:max="queries.length-1" v-model.number="queryIdx" v-bind:value="queryIdx">
-                        <button class="btn btn-primary mt-2 float-right" v-on:click="submitNew">Submit</button>
+        <div class="col-8 bg-gray" style="border-left: .05rem solid #bcc3ce;">
+            <div v-if="!submitted" class="hero hero-lg bg-gray">
+                <div class="hero-body">
+                    <h1>QueryLens</h1>
+                    <p>Write your query in the area provided and click submit to explore query variations.</p>
+                </div>
+            </div>
+            <div v-if="submitted && queries.length === 0" class="p-2">
+                <p>Please do not refresh or navigate away from this page.</p>
+                <div v-if="progress == 0">
+                    <progress class="progress" min="0" max="100"></progress>
+                    <p>[[message]]</p>
+                    <i>This process will be faster the next time around. The results from your query will be cached.</i>
+                </div>
+                <div v-if="progress > 0">
+                    <progress class="progress" v-bind:value="progress" min="0" max="100"></progress>
+                    <p>Evaluating queries...</p>
+                </div>
+            </div>
+            <div v-if="queries.length > 0" class="container">
+                <div class="columns col-gapless">
+                    <div class="column col-6 bg-gray" style="border-bottom: .05rem solid #bcc3ce;">
+                        <div class="btn-group btn-group-block">
+                            <button class="btn btn-primary" v-on:click="submitNew">Continue Exploring</button>
+                            <button class="btn" v-on:click="openVis">QueryVis <i class="icon icon-arrow-right"></i></button>
+                            <button class="btn" v-on:click="openResults">Results <i class="icon icon-arrow-right"></i></button>
+                        </div>
                         <ul>
                             <li>F1: [[queries[queryIdx].f1]]</li>
                             <li>Precision: [[queries[queryIdx].precision]]</li>
@@ -72,9 +99,15 @@
                             <li># Retrieved: [[queries[queryIdx].num_ret]]</li>
                         </ul>
                     </div>
-                    <div class="column col-6">
-                        <canvas id="chart1" width="10" height="10"></canvas>
+                    <div class="column col-6" style="padding: 1em; background-color: white; border-left: .05rem solid #bcc3ce; border-bottom: .05rem solid #bcc3ce;">
+                        <div v-if="chartLoading" class="loading loading-lg"></div>
+                        <canvas id="chart1" width="1" height="1"></canvas>
+                        <input class="slider" type="range" min="0" v-bind:max="queries.length-1" v-model.number="queryIdx" v-bind:value="queryIdx">
                     </div>
+                </div>
+                <div style="padding: 1em; background-color: white;">
+                    <div v-if="chartLoading" class="loading loading-lg"></div>
+                    <canvas id="chart2" height="24" width="100"></canvas>
                 </div>
             </div>
         </div>
@@ -83,6 +116,8 @@
 <script src="/static/vue.js" type="text/javascript"></script>
 <script src="/static/lodash.min.js" type="text/javascript"></script>
 <script src="/plugin/querylens/static/Chart.bundle.js" type="text/javascript"></script>
+<script src="/static/jquery-3.4.1.min.js" type="text/javascript"></script>
+<script src="/static/jquery.highlight-within-textarea.js" type="text/javascript"></script>
 <script type="text/javascript">
     var vm = new Vue({
         el: "#app",
@@ -97,50 +132,68 @@
             progress: 0,
             submitted: false,
             chart: null,
+            prchart: null,
+            prec: [],
+            recall: [],
+            chartLoading: true,
             message: "spooky!",
+        },
+        mounted: function () {
+            this.lang = "pubmed";
+            this.highlightPubmed();
         },
         methods: {
             reset: function () {
                 this.ws.close();
             },
             submitNew: function () {
+
+                if (this.queries.length > 0) {
+                    this.prec.push(this.queries[this.queryIdx].precision)
+                    this.recall.push(this.queries[this.queryIdx].recall)
+                }
+
+                this.chartLoading = true;
+                this.queries = [];
+                this.progress = 0;
+                this.queryIdx = 0;
+
                 let protocol = 'ws:';
                 if (window.location.protocol === 'https:') {
                     protocol = 'wss:';
                 }
 
-
-                if (this.ws !== null) {
-                    this.ws.close();
-                }
-
-                this.ws = new WebSocket(window.location.toString().replace(window.location.protocol, protocol) + "?lens=y");
-                let self = this;
-                this.ws.onopen = function () {
-                    self.queries = [];
-                    self.progress = 0;
-                    self.queryIdx = 0;
-                    self.ws.send(JSON.stringify({query: self.query, language: self.lang}));
-                    self.submitted = true;
-                    console.log("opened websocket");
-                };
-                this.ws.onmessage = function (evt) {
-                    data = JSON.parse(evt.data)
-                    switch (data.type) {
-                        case "queries":
-                            self.queries = data.queries;
-                            self.renderCharts();
-                        case "executing":
-                            self.progress = data.progress;
-                            self.message = "Evaluating queries..."
-                        case "message":
-                            self.message = data.message;
+                if (this.ws === null) {
+                    this.ws = new WebSocket(window.location.toString().replace(window.location.protocol, protocol) + "?lens=y");
+                    let self = this;
+                    this.ws.onopen = function () {
+                        self.queries = [];
+                        self.progress = 0;
+                        self.queryIdx = 0;
+                        self.ws.send(JSON.stringify({query: self.query, language: self.lang}));
+                        self.submitted = true;
+                        console.log("opened websocket");
+                    };
+                    this.ws.onmessage = function (evt) {
+                        data = JSON.parse(evt.data)
+                        switch (data.type) {
+                            case "queries":
+                                self.queries = data.queries;
+                                self.renderCharts();
+                            case "executing":
+                                self.progress = data.progress;
+                                self.message = "Evaluating queries..."
+                            case "message":
+                                self.message = data.message;
+                        }
                     }
-                }
-                this.ws.onclose = function () {
-                    self.queries = [];
-                    self.progress = 0;
-                    self.submitted = false;
+                    this.ws.onclose = function () {
+                        self.queries = [];
+                        self.progress = 0;
+                        self.submitted = false;
+                    }
+                } else {
+                    this.ws.send(JSON.stringify({query: this.query, language: this.lang}));
                 }
             },
             renderCharts: function () {
@@ -209,18 +262,135 @@
                             }
                         }
                     });
+                    self.chartLoading = false;
                     self.chart = chart;
-                }, 1000)
+                }, 500)
+
+                window.setTimeout(function () {
+                    if (self.prchart === null) {
+                        var labels = [];
+                        var ctx = document.getElementById('chart2').getContext('2d');
+                        for (var i = 0; i < self.prec.length; i++) {
+                            labels.push(i.toString())
+                        }
+                        var chart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: labels,
+                                datasets: [
+                                    {
+                                        label: "Precision",
+                                        data: self.prec,
+                                        fill: false,
+                                        backgroundColor: '#5755d9',
+                                        borderColor: '#5755d9',
+                                    },
+                                    {
+                                        label: "Recall",
+                                        data: self.recall,
+                                        fill: false,
+                                        backgroundColor: '#f1f1fc',
+                                        borderColor: '#f1f1fc',
+                                    }
+                                ]
+                            },
+                            options: {
+                                showTooltips: false,
+                            }
+                        });
+                    } else {
+                        self.prchart.config.datasets.forEach(function (dataset) {
+                            if (dataset.label === "Precision") {
+                                dataset.data = self.prec;
+                            } else if (dataset.label === "Recall") {
+                                dataset.data = self.recall
+                            }
+                        })
+                    }
+                }, 500)
+            },
+            highlightPubmed: function () {
+                $("#query").highlightWithinTextarea({
+                    highlight: [
+                        {
+                            highlight: /\(|\)/g,
+                            className: 'bracket'
+                        },
+                        {
+                            highlight: /AND|OR|NOT/g,
+                            className: 'operator'
+                        },
+                        {
+                            highlight: /\[[a-zA-Z /]+\]/ig,
+                            className: 'fields'
+                        }
+                    ]
+                })
+            },
+            openVis: function () {
+                let form = document.createElement("form");
+                form.target = "_self";
+                form.method = "POST";
+                form.action = "/plugin/queryvis";
+                form.style.display = "none";
+
+                let queryInput = document.createElement("input");
+                queryInput.type = "hidden";
+                queryInput.name = "query";
+                queryInput.value = this.query;
+                form.appendChild(queryInput);
+
+                let langInput = document.createElement("input");
+                langInput.type = "hidden";
+                langInput.name = "lang";
+                langInput.value = this.lang;
+                form.appendChild(langInput);
+
+                document.body.appendChild(form);
+                form.submit();
+            },
+            openResults: function () {
+                let form = document.createElement("form");
+                form.target = "_self";
+                form.method = "POST";
+                form.action = "/results";
+                form.style.display = "none";
+
+                let queryInput = document.createElement("input");
+                queryInput.type = "hidden";
+                queryInput.name = "query";
+                queryInput.value = this.query;
+                form.appendChild(queryInput);
+
+                let langInput = document.createElement("input");
+                langInput.type = "hidden";
+                langInput.name = "lang";
+                langInput.value = this.lang;
+                form.appendChild(langInput);
+
+                document.body.appendChild(form);
+                form.submit();
             }
         },
         watch: {
             queryIdx: _.debounce(function () {
+                if (this.queries.length === 0) {
+                    return;
+                }
                 this.query = this.queries[this.queryIdx].query;
+                setTimeout(function () {
+                    $("#query").highlightWithinTextarea("update");
+                }, 10);
                 this.chart.update();
-            }, 50)
+            }, 50),
+            lang: function () {
+                if (this.lang === "pubmed") {
+                    $("#query").highlightWithinTextarea("update");
+                    this.highlightPubmed();
+                }
+            }
         }
     })
 </script>
-
 </body>
 </html>
