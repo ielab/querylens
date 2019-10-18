@@ -51,7 +51,7 @@
     </header>
     <div class="columns col-gapless">
         <div class="col-4 p-2">
-            <textarea id="query" class="form-input" rows="20" placeholder="Enter query here." v-model:value="query" :disabled="submitted ? '' : disabled"></textarea>
+            <textarea id="query" class="form-input" rows="20" placeholder="Enter query here." v-model:value="query"></textarea>
             <div class="form-group" v-if="!submitted">
                 <label>Query Language
                     <small><a href="/help#WritingQueries">help?</a></small>
@@ -93,6 +93,8 @@
                             <button class="btn" v-on:click="openResults">Results <i class="icon icon-arrow-right"></i></button>
                         </div>
                         <ul>
+                            <li>Number of variations: [[queries[queryIdx].num_transformations]]</li>
+                            <li>Type of transformation of this variation: [[queries[queryIdx].transformation]]</li>
                             <li>F1: [[queries[queryIdx].f1]]</li>
                             <li>Precision: [[queries[queryIdx].precision]]</li>
                             <li>Recall: [[queries[queryIdx].recall]]</li>
@@ -124,17 +126,16 @@
         delimiters: ["[[", "]]"],
         data: {
             ws: null,
-            query: "(((esophag*[All Fields] OR oesophag*[All Fields]) AND (varic*[All Fields] OR varix*[All Fields])) OR (Esophageal[All Fields] AND Gastric Varices[All Fields]))",
+            query: "((optic disc[Title/Abstract] OR Fibrous layer[Title/Abstract] OR diagnostic imaging[Title/Abstract] OR imaging procedure[Title/Abstract]) AND (Glaucoma[Title/Abstract] OR diagnosis[Title/Abstract] OR (Glaucomas[Mesh Terms:noexp] OR Glaucoma[Mesh Terms:noexp] OR Glaucoma[Title/Abstract])))",
             lang: "pubmed",
             status: "",
             queries: [],
+            chosenQueries: [],
             queryIdx: 0,
             progress: 0,
             submitted: false,
             chart: null,
             prchart: null,
-            prec: [],
-            recall: [],
             chartLoading: true,
             message: "spooky!",
         },
@@ -149,8 +150,7 @@
             submitNew: function () {
 
                 if (this.queries.length > 0) {
-                    this.prec.push(this.queries[this.queryIdx].precision)
-                    this.recall.push(this.queries[this.queryIdx].recall)
+                    this.chosenQueries.push(this.queries[this.queryIdx])
                 }
 
                 this.chartLoading = true;
@@ -270,8 +270,12 @@
                     if (self.prchart === null) {
                         var labels = [];
                         var ctx = document.getElementById('chart2').getContext('2d');
-                        for (var i = 0; i < self.prec.length; i++) {
+                        var recall = []
+                        var precision = []
+                        for (var i = 0; i < self.chosenQueries.length; i++) {
                             labels.push(i.toString())
+                            recall.push(self.chosenQueries[i].recall)
+                            precision.push(self.chosenQueries[i].precision)
                         }
                         var chart = new Chart(ctx, {
                             type: 'line',
@@ -280,14 +284,14 @@
                                 datasets: [
                                     {
                                         label: "Precision",
-                                        data: self.prec,
+                                        data: precision,
                                         fill: false,
                                         backgroundColor: '#5755d9',
                                         borderColor: '#5755d9',
                                     },
                                     {
                                         label: "Recall",
-                                        data: self.recall,
+                                        data: recall,
                                         fill: false,
                                         backgroundColor: '#f1f1fc',
                                         borderColor: '#f1f1fc',
@@ -296,6 +300,13 @@
                             },
                             options: {
                                 showTooltips: false,
+                                onClick: function (evt) {
+                                    var els = chart.getElementsAtEvent(evt);
+                                    if (els.length > 0) {
+                                        var el = els[0];
+                                        self.query = self.chosenQueries[el._index].query
+                                    }
+                                },
                             }
                         });
                     } else {

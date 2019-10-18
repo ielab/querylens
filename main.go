@@ -34,12 +34,14 @@ type lensRequest struct {
 }
 
 type queryVariation struct {
-	Query     string  `json:"query"`
-	Shape     string  `json:"shape"`
-	Precision float64 `json:"precision"`
-	Recall    float64 `json:"recall"`
-	F1        float64 `json:"f1"`
-	NumRet    float64 `json:"num_ret"`
+	Query              string  `json:"query"`
+	Shape              string  `json:"shape"`
+	Transformation     string  `json:"transformation"`
+	NumTransformations int     `json:"num_transformations"`
+	Precision          float64 `json:"precision"`
+	Recall             float64 `json:"recall"`
+	F1                 float64 `json:"f1"`
+	NumRet             float64 `json:"num_ret"`
 }
 
 type lensResponse struct {
@@ -57,9 +59,19 @@ var upgrader = websocket.Upgrader{
 	},
 }
 var (
-	embeddings cui2vec.Embeddings
-	mapping    cui2vec.Mapping
-	cache      quickumlsrest.Cache
+	embeddings         cui2vec.Embeddings
+	mapping            cui2vec.Mapping
+	cache              quickumlsrest.Cache
+	transformationType = []string{
+		"Logical Operator Replacement",
+		"Adjacency Range",
+		"MeSH Explosion",
+		"Field Restrictions",
+		"Adjacency Replacement",
+		"Clause Removal",
+		"cui2vec Expansion",
+		"MeSH Parent",
+	}
 )
 
 func generateVariations(query cqr.CommonQueryRepresentation, s stats.StatisticsSource, me analysis.MeasurementExecutor, transformations ...learning.Transformation) ([]learning.CandidateQuery, error) {
@@ -207,12 +219,14 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 				results := t.Documents(qc).Results(pq, "0")
 
 				queries[i] = queryVariation{
-					Query:     q,
-					Shape:     "circle",
-					Precision: eval.Precision.Score(&results, qrels.Qrels["0"]),
-					Recall:    eval.Recall.Score(&results, qrels.Qrels["0"]),
-					F1:        eval.F1Measure.Score(&results, qrels.Qrels["0"]),
-					NumRet:    float64(len(results)),
+					Query:              q,
+					Shape:              "circle",
+					Transformation:     transformationType[variations[i].TransformationID],
+					NumTransformations: len(variations),
+					Precision:          eval.Precision.Score(&results, qrels.Qrels["0"]),
+					Recall:             eval.Recall.Score(&results, qrels.Qrels["0"]),
+					F1:                 eval.F1Measure.Score(&results, qrels.Qrels["0"]),
+					NumRet:             float64(len(results)),
 				}
 
 				fmt.Println(queries[i].Precision, queries[i].Recall, queries[i].F1, eval.NumRel.Score(&results, qrels.Qrels["0"]))
@@ -249,12 +263,14 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 			}
 			ltrResuts := t1.Documents(qc).Results(ltrPq, "0")
 			queries = append(queries, queryVariation{
-				Query:     ltrQuery,
-				Shape:     "triangle",
-				Precision: eval.Precision.Score(&ltrResuts, qrels.Qrels["0"]),
-				Recall:    eval.Recall.Score(&ltrResuts, qrels.Qrels["0"]),
-				F1:        eval.F1Measure.Score(&ltrResuts, qrels.Qrels["0"]),
-				NumRet:    float64(len(ltrResuts)),
+				Query:              ltrQuery,
+				Shape:              "triangle",
+				Transformation:     transformationType[ltrCandidate.TransformationID],
+				NumTransformations: len(variations),
+				Precision:          eval.Precision.Score(&ltrResuts, qrels.Qrels["0"]),
+				Recall:             eval.Recall.Score(&ltrResuts, qrels.Qrels["0"]),
+				F1:                 eval.F1Measure.Score(&ltrResuts, qrels.Qrels["0"]),
+				NumRet:             float64(len(ltrResuts)),
 			})
 
 			pq := pipeline.NewQuery("0", "0", candidate.Query)
@@ -265,12 +281,14 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 			}
 			origResuts := t2.Documents(qc).Results(ltrPq, "0")
 			queries = append(queries, queryVariation{
-				Query:     rawQuery,
-				Shape:     "cross",
-				Precision: eval.Precision.Score(&origResuts, qrels.Qrels["0"]),
-				Recall:    eval.Recall.Score(&origResuts, qrels.Qrels["0"]),
-				F1:        eval.F1Measure.Score(&origResuts, qrels.Qrels["0"]),
-				NumRet:    float64(len(origResuts)),
+				Query:              rawQuery,
+				Shape:              "cross",
+				Transformation:     "Original",
+				NumTransformations: len(variations),
+				Precision:          eval.Precision.Score(&origResuts, qrels.Qrels["0"]),
+				Recall:             eval.Recall.Score(&origResuts, qrels.Qrels["0"]),
+				F1:                 eval.F1Measure.Score(&origResuts, qrels.Qrels["0"]),
+				NumRet:             float64(len(origResuts)),
 			})
 
 			sort.Slice(queries, func(i, j int) bool {
