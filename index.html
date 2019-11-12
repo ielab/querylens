@@ -93,11 +93,11 @@
                             <button class="btn" v-on:click="openResults">Results <i class="icon icon-arrow-right"></i></button>
                         </div>
                         <ul>
-                            <li>Number of variations: [[queries[queryIdx].num_transformations]]</li>
-                            <li>Type of transformation of this variation: [[queries[queryIdx].transformation]]</li>
-                            <li>F1: [[queries[queryIdx].f1]]</li>
-                            <li>Precision: [[queries[queryIdx].precision]]</li>
-                            <li>Recall: [[queries[queryIdx].recall]]</li>
+                            <li>Number of variations: [[ queries[queryIdx].num_transformations]]</li>
+                            <li>Type of transformation of this variation: [[queries[queryIdx].transformation ]]</li>
+                            <li>F1: [[queries[queryIdx].f1.toFixed(4)]]</li>
+                            <li>Precision: [[queries[queryIdx].precision.toFixed(4)]]</li>
+                            <li>Recall: [[queries[queryIdx].recall.toFixed(4)]]</li>
                             <li># Retrieved: [[queries[queryIdx].num_ret]]</li>
                         </ul>
                     </div>
