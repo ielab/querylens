@@ -6,22 +6,18 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/hscells/cqr"
-	"github.com/hscells/cui2vec"
 	"github.com/hscells/groove/analysis"
 	"github.com/hscells/groove/combinator"
 	"github.com/hscells/groove/eval"
 	"github.com/hscells/groove/learning"
 	"github.com/hscells/groove/pipeline"
 	"github.com/hscells/groove/stats"
-	"github.com/hscells/quickumlsrest"
-	"github.com/hscells/quickumlsrest/quiche"
 	"github.com/hscells/transmute"
 	tpipeline "github.com/hscells/transmute/pipeline"
 	"github.com/hscells/trecresults"
 	"github.com/ielab/searchrefiner"
 	"log"
 	"net/http"
-	"os"
 	"sort"
 	"time"
 )
@@ -58,21 +54,16 @@ var upgrader = websocket.Upgrader{
 		return true
 	},
 }
-var (
-	embeddings         cui2vec.Embeddings
-	mapping            cui2vec.Mapping
-	cache              quickumlsrest.Cache
-	transformationType = []string{
-		"Logical Operator Replacement",
-		"Adjacency Range",
-		"MeSH Explosion",
-		"Field Restrictions",
-		"Adjacency Replacement",
-		"Clause Removal",
-		"cui2vec Expansion",
-		"MeSH Parent",
-	}
-)
+var transformationType = []string{
+	"Logical Operator Replacement",
+	"Adjacency Range",
+	"MeSH Explosion",
+	"Field Restrictions",
+	"Adjacency Replacement",
+	"Clause Removal",
+	"cui2vec Expansion",
+	"MeSH Parent",
+}
 
 func generateVariations(query cqr.CommonQueryRepresentation, s stats.StatisticsSource, me analysis.MeasurementExecutor, transformations ...learning.Transformation) ([]learning.CandidateQuery, error) {
 	return learning.Variations(
@@ -153,7 +144,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 				learning.NewFieldRestrictionsTransformer(),
 				learning.NewMeshParentTransformer(),
 				learning.NewClauseRemovalTransformer(),
-				learning.Newcui2vecExpansionTransformer(embeddings, mapping, cache),
+				learning.Newcui2vecExpansionTransformer(s.CUIEmbeddings, s.CUIMapping, s.QuicheCache),
 			)
 
 			err = ws.WriteJSON(lensResponse{
@@ -167,7 +158,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 
 			// selector is a quickrank candidate selector configured to only select to a depth of one.
 			ltrModel := learning.NewQuickRankQueryCandidateSelector(
-				searchrefiner.ServerConfiguration.Config.Options["QuickRank"].(string),
+				s.Config.Options.QuickRank,
 				map[string]interface{}{
 					"model-in":    "plugin/querylens/balanced.xml",
 					"test-metric": "DCG",
@@ -318,37 +309,6 @@ func handleVariations(s searchrefiner.Server, c *gin.Context) {
 }
 
 func (QueryLensPlugin) Serve(s searchrefiner.Server, c *gin.Context) {
-	if embeddings == nil {
-		log.Println("loading cui2vec components")
-		f, err := os.OpenFile(searchrefiner.ServerConfiguration.Config.Options["Cui2VecEmbeddings"].(string), os.O_RDONLY, 0644)
-		if err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-		defer f.Close()
-
-		log.Println("loading mappings")
-		mapping, err = cui2vec.LoadCUIMapping(searchrefiner.ServerConfiguration.Config.Options["Cui2VecMappings"].(string))
-		if err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		log.Println("loading model")
-		embeddings, err = cui2vec.NewPrecomputedEmbeddings(f)
-		if err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-
-		log.Println("loading quiche cache")
-		cache, err = quiche.Load(searchrefiner.ServerConfiguration.Config.Options["Quiche"].(string))
-		if err != nil {
-			c.Status(http.StatusInternalServerError)
-			return
-		}
-	}
-
 	if c.Query("lens") == "y" {
 		handleVariations(s, c)
 		return
