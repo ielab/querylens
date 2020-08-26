@@ -63,6 +63,7 @@
                     </select>
                 </label>
                 <button class="btn btn-primary mt-2 float-right" v-on:click="submitNew">Submit</button>
+                {{ template "send_query" .}}
             </div>
         </div>
         <div class="col-8 bg-gray" style="border-left: .05rem solid #bcc3ce;">
@@ -77,18 +78,18 @@
                 <div v-if="progress == 0">
                     <progress class="progress" min="0" max="100"></progress>
                     <p>[[message]]</p>
-                    <i>This process will be faster the next time around. The results from your query will be cached.</i>
+                    <i>This process will be faster the next time around. The results from your search will be cached in this session.</i>
                 </div>
                 <div v-if="progress > 0">
                     <progress class="progress" v-bind:value="progress" min="0" max="100"></progress>
-                    <p>Evaluating queries...</p>
+                    <p>[[message]]</p>
                 </div>
             </div>
             <div v-if="queries.length > 0" class="container">
                 <div class="columns col-gapless">
                     <div class="column col-6 bg-gray" style="border-bottom: .05rem solid #bcc3ce;">
                         <div class="btn-group btn-group-block">
-                            <button class="btn btn-primary" v-on:click="submitNew">Continue Exploring</button>
+                            <button class="btn btn-primary" v-on:click="submitNew">Generate more from this query</button>
                             <button class="btn" v-on:click="openVis">QueryVis <i class="icon icon-arrow-right"></i></button>
                             <button class="btn" v-on:click="openResults">Results <i class="icon icon-arrow-right"></i></button>
                         </div>
@@ -126,7 +127,7 @@
         delimiters: ["[[", "]]"],
         data: {
             ws: null,
-            query: "((optic disc[Title/Abstract] OR Fibrous layer[Title/Abstract] OR diagnostic imaging[Title/Abstract] OR imaging procedure[Title/Abstract]) AND (Glaucoma[Title/Abstract] OR diagnosis[Title/Abstract] OR (Glaucomas[Mesh Terms:noexp] OR Glaucoma[Mesh Terms:noexp] OR Glaucoma[Title/Abstract])))",
+            query: "{{.QueryString}}",
             lang: "pubmed",
             status: "",
             queries: [],
@@ -182,7 +183,7 @@
                                 self.renderCharts();
                             case "executing":
                                 self.progress = data.progress;
-                                self.message = "Evaluating queries..."
+                                self.message = data.message;
                             case "message":
                                 self.message = data.message;
                         }

@@ -61,7 +61,7 @@ var transformationType = []string{
 	"Field Restrictions",
 	"Adjacency Replacement",
 	"Clause Removal",
-	"cui2vec Expansion",
+	"Term Expansion",
 	"MeSH Parent",
 }
 
@@ -90,6 +90,8 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 		qrels.Qrels["0"][pmid.String()] = &trecresults.Qrel{Topic: "0", Iteration: "0", DocId: pmid.String(), Score: 1}
 	}
 	eval.RelevanceGrade = 0
+
+	qc := combinator.NewMapQueryCache()
 
 	for {
 		select {
@@ -158,7 +160,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 
 			// selector is a quickrank candidate selector configured to only select to a depth of one.
 			ltrModel := learning.NewQuickRankQueryCandidateSelector(
-				s.Config.Options.QuickRank,
+				s.Config.Resources.QuickRank,
 				map[string]interface{}{
 					"model-in":    "plugin/querylens/balanced.xml",
 					"test-metric": "DCG",
@@ -192,7 +194,6 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 			default:
 				backend = transmute.CompileCqr2Medline
 			}
-			qc := combinator.NewFileQueryCache("file_cache")
 
 			for i := range variations {
 				q, err := backend(variations[i].Query)
@@ -224,6 +225,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 
 				err = ws.WriteJSON(lensResponse{
 					Type:     "executing",
+					Message:  fmt.Sprintf("Evaluating queries... (%d/%d)", i, len(variations)),
 					Progress: (float64(i) / float64(len(variations))) * 100,
 				})
 				if err != nil {
@@ -313,7 +315,14 @@ func (QueryLensPlugin) Serve(s searchrefiner.Server, c *gin.Context) {
 		handleVariations(s, c)
 		return
 	}
-	c.Render(http.StatusOK, searchrefiner.RenderPlugin(searchrefiner.TemplatePlugin("plugin/querylens/index.html"), nil))
+	rawQuery := c.PostForm("query")
+	lang := c.PostForm("lang")
+	c.Render(http.StatusOK, searchrefiner.RenderPlugin(searchrefiner.TemplatePlugin("plugin/querylens/index.html"), searchrefiner.Query{
+		QueryString: rawQuery,
+		Language:    lang,
+		PluginTitle: "QueryLens",
+		Plugins:     s.Plugins,
+	}))
 }
 
 func (QueryLensPlugin) PermissionType() searchrefiner.PluginPermission {
@@ -322,11 +331,12 @@ func (QueryLensPlugin) PermissionType() searchrefiner.PluginPermission {
 
 func (QueryLensPlugin) Details() searchrefiner.PluginDetails {
 	return searchrefiner.PluginDetails{
-		Title:       "QueryLens",
-		Description: "(Semi)-Automatic query refinement and exploration.",
-		Author:      "Harry Scells",
-		Version:     "02.Oct.2019",
-		ProjectURL:  "https://github.com/hscells/querylens",
+		Title:             "QueryLens",
+		Description:       "Explore automatically generated variations of your search.",
+		Author:            "Harry Scells",
+		Version:           "26.Aug.2020",
+		ProjectURL:        "https://github.com/ielab/querylens",
+		AcceptsQueryPosts: true,
 	}
 }
 
