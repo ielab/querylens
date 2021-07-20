@@ -203,7 +203,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 				}
 
 				pq := pipeline.NewQuery("0", "0", variations[i].Query)
-				t, _, err := combinator.NewLogicalTree(pq, s.Entrez, qc)
+				t, err := combinator.NewShallowLogicalTree(pq, s.Entrez, settings.Relevant)
 				if err != nil {
 					log.Println("write:", err)
 					return
@@ -249,7 +249,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 				return
 			}
 			ltrPq := pipeline.NewQuery("0", "0", ltrCandidate.Query)
-			t1, _, err := combinator.NewLogicalTree(ltrPq, s.Entrez, qc)
+			t1, err := combinator.NewShallowLogicalTree(ltrPq, s.Entrez, settings.Relevant)
 			if err != nil {
 				log.Println("write:", err)
 				return
@@ -267,7 +267,7 @@ func wsEvent(ws *websocket.Conn, s searchrefiner.Server, settings searchrefiner.
 			})
 
 			pq := pipeline.NewQuery("0", "0", candidate.Query)
-			t2, _, err := combinator.NewLogicalTree(pq, s.Entrez, qc)
+			t2, err := combinator.NewShallowLogicalTree(pq, s.Entrez, settings.Relevant)
 			if err != nil {
 				log.Println("write:", err)
 				return
@@ -338,6 +338,10 @@ func (QueryLensPlugin) Details() searchrefiner.PluginDetails {
 		ProjectURL:        "https://github.com/ielab/querylens",
 		AcceptsQueryPosts: true,
 	}
+}
+
+func (QueryLensPlugin) Startup(s searchrefiner.Server) {
+
 }
 
 var Querylens QueryLensPlugin
